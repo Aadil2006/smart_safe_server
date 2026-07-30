@@ -137,17 +137,21 @@ def check_unlock():
     if unlock_flag:
         unlock_flag = False 
         
-    # Agar Blynk App (V3) se unlock daba hai
+    # Agar Blynk App (V4 PUSH BUTTON) se unlock daba hai
     try:
-        res = requests.get(f"https://blynk.cloud/external/api/get?token={BLYNK_AUTH_TOKEN}&V3")
+        res = requests.get(f"https://blynk.cloud/external/api/get?token={BLYNK_AUTH_TOKEN}&V4")
         if res.status_code == 200 and int(res.json()[0]) == 1:
             should_unlock = True
-            # Button ko wapas 0 (Off) kar do
-            requests.get(f"https://blynk.cloud/external/api/update?token={BLYNK_AUTH_TOKEN}&V3=0")
-    except:
-        pass
+            # Button ko turant wapas 0 (Off) kar do taaki loop na bane
+            requests.get(f"https://blynk.cloud/external/api/update?token={BLYNK_AUTH_TOKEN}&V4=0")
+    except Exception as e:
+        print("Blynk Get Error:", e)
 
-    return jsonify({"unlock": should_unlock})
+    # ESP32 ko sidha text chahiye "true" ya "false"
+    if should_unlock:
+        return "true"
+    else:
+        return "false"
 
 @app.route('/get_pin', methods=['GET'])
 def get_pin():
