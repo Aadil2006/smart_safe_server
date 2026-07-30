@@ -121,7 +121,6 @@ def log_access():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Function to auto-clear OTP from Blynk
 def clear_otp():
     try:
         requests.get(f"https://blynk.cloud/external/api/update?token={BLYNK_AUTH_TOKEN}&v1=---")
@@ -135,27 +134,28 @@ def send_otp():
         otp = data.get('otp', '0000')
         requests.get(f"https://blynk.cloud/external/api/update?token={BLYNK_AUTH_TOKEN}&v1=OTP: {otp}")
         
-        # Start a 60-second timer to clear the OTP
         threading.Timer(60.0, clear_otp).start()
         
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# FAST PYTHON EMAIL SENDER
+# NEW FAST PYTHON EMAIL SENDER (Port 587 - TLS)
 def send_email_async(subject, body):
     try:
         msg = MIMEText(body)
         msg['Subject'] = subject
         msg['From'] = 'aadilarora36@gmail.com'
         msg['To'] = 'aadilarora36@gmail.com'
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls() # Secure connection
         server.login('aadilarora36@gmail.com', 'flwf amjq pthg iwji')
         server.send_message(msg)
         server.quit()
-        print("📧 Fast Email Sent!")
+        print("📧 Fast Email Sent Successfully!")
     except Exception as e:
-        print("Email Error:", e)
+        print("❌ Email Failed:", e)
 
 @app.route('/send_email', methods=['POST'])
 def send_email():
@@ -163,7 +163,7 @@ def send_email():
         data = request.get_json()
         subject = data.get("subject", "Smart Safe Alert")
         body = data.get("body", "")
-        # Runs in background, server responds instantly to ESP32
+        # Run email in background so ESP32 doesn't hang
         threading.Thread(target=send_email_async, args=(subject, body)).start()
         return jsonify({"success": True})
     except Exception as e:
