@@ -4,6 +4,8 @@ from pymongo import MongoClient
 from datetime import datetime
 import threading
 import requests
+import smtplib
+from email.mime.text import MIMEText
 
 app = Flask(__name__)
 
@@ -98,7 +100,6 @@ def log_access():
             "timestamp": datetime.now()
         }
         collection.insert_one(log_entry)
-        print(f"📝 MongoDB Log Saved: {status} | Tag: {tag}")
         
         # PREMIUM BLYNK ALERTS LOGIC
         alert_msg = ""
@@ -114,7 +115,7 @@ def log_access():
         try:
             requests.get(f"https://blynk.cloud/external/api/update?token={BLYNK_AUTH_TOKEN}&v2={alert_msg}")
         except Exception as e:
-            print("Blynk Alert Error:", e)
+            pass
 
         return jsonify({"message": "Log saved"}), 201
     except Exception as e:
@@ -124,7 +125,6 @@ def log_access():
 def clear_otp():
     try:
         requests.get(f"https://blynk.cloud/external/api/update?token={BLYNK_AUTH_TOKEN}&v1=---")
-        print("🧹 OTP Cleared from Screen")
     except:
         pass
 
@@ -134,7 +134,6 @@ def send_otp():
         data = request.get_json()
         otp = data.get('otp', '0000')
         requests.get(f"https://blynk.cloud/external/api/update?token={BLYNK_AUTH_TOKEN}&v1=OTP: {otp}")
-        print(f"📲 OTP {otp} sent to Blynk")
         
         # Start a 60-second timer to clear the OTP
         threading.Timer(60.0, clear_otp).start()
@@ -143,17 +142,42 @@ def send_otp():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# NEW: 2-WAY SMART SWITCH SYNC ROUTE
+# FAST PYTHON EMAIL SENDER
+def send_email_async(subject, body):
+    try:
+        msg = MIMEText(body)
+        msg['Subject'] = subject
+        msg['From'] = 'aadilarora36@gmail.com'
+        msg['To'] = 'aadilarora36@gmail.com'
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server.login('aadilarora36@gmail.com', 'flwf amjq pthg iwji')
+        server.send_message(msg)
+        server.quit()
+        print("📧 Fast Email Sent!")
+    except Exception as e:
+        print("Email Error:", e)
+
+@app.route('/send_email', methods=['POST'])
+def send_email():
+    try:
+        data = request.get_json()
+        subject = data.get("subject", "Smart Safe Alert")
+        body = data.get("body", "")
+        # Runs in background, server responds instantly to ESP32
+        threading.Thread(target=send_email_async, args=(subject, body)).start()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# 2-WAY SMART SWITCH SYNC ROUTE
 @app.route('/blynk_sync', methods=['GET', 'POST'])
 def blynk_sync():
     try:
         if request.method == 'POST':
-            # ESP32 is updating the cloud status (Physical to Cloud)
             state = request.get_json().get("state", "0")
             requests.get(f"https://blynk.cloud/external/api/update?token={BLYNK_AUTH_TOKEN}&v4={state}")
             return jsonify({"success": True})
         else:
-            # ESP32 is reading the cloud status (Cloud to Physical)
             res = requests.get(f"https://blynk.cloud/external/api/get?token={BLYNK_AUTH_TOKEN}&v4")
             if res.status_code == 200 and "1" in res.text:
                 return "1"
@@ -198,7 +222,6 @@ def index():
 
 @app.route('/web_unlock', methods=['POST'])
 def web_unlock():
-    # Web Dashboard clicks now turn the Blynk switch ON for seamless sync
     requests.get(f"https://blynk.cloud/external/api/update?token={BLYNK_AUTH_TOKEN}&v4=1")
     return jsonify({"success": True})
 
