@@ -13,6 +13,7 @@ app = Flask(__name__)
 # 1. BLYNK & DASHBOARD SETTINGS
 # ==========================================
 BLYNK_AUTH_TOKEN = "l3i7rUSmcoZ8n9-ZTZ9xeRNn1Pa-pgVQ"
+BLYNK_URL = "https://blr1.blynk.cloud/external/api" # BUG FIX: Added blr1.blynk.cloud for ZERO DELAY
 WEB_USER = "admin"
 WEB_PASS = "12345"
 
@@ -113,7 +114,7 @@ def log_access():
             alert_msg = f"✅ Unlocked by {tag}"
 
         try:
-            requests.get(f"https://blynk.cloud/external/api/update?token={BLYNK_AUTH_TOKEN}&v2={alert_msg}")
+            requests.get(f"{BLYNK_URL}/update?token={BLYNK_AUTH_TOKEN}&v2={alert_msg}")
         except Exception as e:
             pass
 
@@ -123,7 +124,7 @@ def log_access():
 
 def clear_otp():
     try:
-        requests.get(f"https://blynk.cloud/external/api/update?token={BLYNK_AUTH_TOKEN}&v1=---")
+        requests.get(f"{BLYNK_URL}/update?token={BLYNK_AUTH_TOKEN}&v1=---")
     except:
         pass
 
@@ -132,7 +133,7 @@ def send_otp():
     try:
         data = request.get_json()
         otp = data.get('otp', '0000')
-        requests.get(f"https://blynk.cloud/external/api/update?token={BLYNK_AUTH_TOKEN}&v1=OTP: {otp}")
+        requests.get(f"{BLYNK_URL}/update?token={BLYNK_AUTH_TOKEN}&v1=OTP: {otp}")
         
         threading.Timer(60.0, clear_otp).start()
         
@@ -140,7 +141,7 @@ def send_otp():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# NEW FAST PYTHON EMAIL SENDER (Port 587 - TLS)
+# NEW FAST PYTHON EMAIL SENDER (BUG FIX: Added ehlo() for Server Trust)
 def send_email_async(subject, body):
     try:
         msg = MIMEText(body)
@@ -149,7 +150,9 @@ def send_email_async(subject, body):
         msg['To'] = 'aadilarora36@gmail.com'
         
         server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.ehlo() # Required by some cloud providers like Render
         server.starttls() # Secure connection
+        server.ehlo()
         server.login('aadilarora36@gmail.com', 'flwf amjq pthg iwji')
         server.send_message(msg)
         server.quit()
@@ -163,7 +166,6 @@ def send_email():
         data = request.get_json()
         subject = data.get("subject", "Smart Safe Alert")
         body = data.get("body", "")
-        # Run email in background so ESP32 doesn't hang
         threading.Thread(target=send_email_async, args=(subject, body)).start()
         return jsonify({"success": True})
     except Exception as e:
@@ -175,10 +177,10 @@ def blynk_sync():
     try:
         if request.method == 'POST':
             state = request.get_json().get("state", "0")
-            requests.get(f"https://blynk.cloud/external/api/update?token={BLYNK_AUTH_TOKEN}&v4={state}")
+            requests.get(f"{BLYNK_URL}/update?token={BLYNK_AUTH_TOKEN}&v4={state}")
             return jsonify({"success": True})
         else:
-            res = requests.get(f"https://blynk.cloud/external/api/get?token={BLYNK_AUTH_TOKEN}&v4")
+            res = requests.get(f"{BLYNK_URL}/get?token={BLYNK_AUTH_TOKEN}&v4")
             if res.status_code == 200 and "1" in res.text:
                 return "1"
             return "0"
@@ -222,7 +224,7 @@ def index():
 
 @app.route('/web_unlock', methods=['POST'])
 def web_unlock():
-    requests.get(f"https://blynk.cloud/external/api/update?token={BLYNK_AUTH_TOKEN}&v4=1")
+    requests.get(f"{BLYNK_URL}/update?token={BLYNK_AUTH_TOKEN}&v4=1")
     return jsonify({"success": True})
 
 if __name__ == '__main__':
