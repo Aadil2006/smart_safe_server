@@ -13,7 +13,7 @@ app = Flask(__name__)
 # 1. BLYNK & DASHBOARD SETTINGS
 # ==========================================
 BLYNK_AUTH_TOKEN = "l3i7rUSmcoZ8n9-ZTZ9xeRNn1Pa-pgVQ"
-BLYNK_URL = "https://blr1.blynk.cloud/external/api" # BUG FIX: Added blr1.blynk.cloud for ZERO DELAY
+BLYNK_URL = "https://blr1.blynk.cloud/external/api" 
 WEB_USER = "admin"
 WEB_PASS = "12345"
 
@@ -141,7 +141,7 @@ def send_otp():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# NEW FAST PYTHON EMAIL SENDER (BUG FIX: Added ehlo() for Server Trust)
+# BUG FIX 2: Fast Python Email Sender using Direct SSL (Port 465)
 def send_email_async(subject, body):
     try:
         msg = MIMEText(body)
@@ -149,14 +149,12 @@ def send_email_async(subject, body):
         msg['From'] = 'aadilarora36@gmail.com'
         msg['To'] = 'aadilarora36@gmail.com'
         
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.ehlo() # Required by some cloud providers like Render
-        server.starttls() # Secure connection
-        server.ehlo()
+        # Using SMTP_SSL port 465 prevents cloud server firewall drops
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
         server.login('aadilarora36@gmail.com', 'flwf amjq pthg iwji')
         server.send_message(msg)
         server.quit()
-        print("📧 Fast Email Sent Successfully!")
+        print("📧 Fast Email Sent Successfully via SSL!")
     except Exception as e:
         print("❌ Email Failed:", e)
 
@@ -166,6 +164,7 @@ def send_email():
         data = request.get_json()
         subject = data.get("subject", "Smart Safe Alert")
         body = data.get("body", "")
+        # Run email in background so ESP32 doesn't hang
         threading.Thread(target=send_email_async, args=(subject, body)).start()
         return jsonify({"success": True})
     except Exception as e:
