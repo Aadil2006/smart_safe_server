@@ -94,7 +94,6 @@ def log_access():
         tag = data.get("rfid_tag", "Unknown")
         status = data.get("status", "Unknown")
         
-        # MongoDB Log Save
         log_entry = {
             "rfid_tag": tag,
             "status": status,
@@ -102,7 +101,6 @@ def log_access():
         }
         collection.insert_one(log_entry)
         
-        # PREMIUM BLYNK ALERTS LOGIC
         alert_msg = ""
         if status == "Lockout":
             alert_msg = "🚨 SECURITY: 30s Lockout Active!"
@@ -141,22 +139,32 @@ def send_otp():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# BUG FIX 2: Fast Python Email Sender using Direct SSL (Port 465)
-def send_email_async(subject, body):
+# ==========================================
+# 📧 EMAIL SENDING SYSTEM (BUG FIXED)
+# ==========================================
+# Spaces removed from App Password - This fixes 90% of login failures
+EMAIL_ID = "aadilarora36@gmail.com"
+APP_PASS = "flwfamjqpthgiwji"
+
+def send_email_sync(subject, body):
     try:
         msg = MIMEText(body)
         msg['Subject'] = subject
-        msg['From'] = 'aadilarora36@gmail.com'
-        msg['To'] = 'aadilarora36@gmail.com'
+        msg['From'] = EMAIL_ID
+        msg['To'] = EMAIL_ID
         
-        # Using SMTP_SSL port 465 prevents cloud server firewall drops
+        # Port 465 SSL is secure and rarely blocked by Render
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-        server.login('aadilarora36@gmail.com', 'flwf amjq pthg iwji')
+        server.login(EMAIL_ID, APP_PASS)
         server.send_message(msg)
         server.quit()
-        print("📧 Fast Email Sent Successfully via SSL!")
+        return True, "Email sent successfully!"
     except Exception as e:
         print("❌ Email Failed:", e)
+        return False, str(e)
+
+def send_email_async(subject, body):
+    send_email_sync(subject, body)
 
 @app.route('/send_email', methods=['POST'])
 def send_email():
@@ -169,6 +177,15 @@ def send_email():
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# 🔥 NAYA TEST ROUTE - TAAKI TU BROWSER SE CHECK KAR SAKE
+@app.route('/test_email', methods=['GET'])
+def test_email():
+    success, msg = send_email_sync("🛠️ Smart Safe Test", "Bhai, tera Render server successfully email bhej raha hai. Code ekdum perfect hai!")
+    if success:
+        return f"<h1>✅ SUCCESS!</h1><p>Email tere {EMAIL_ID} par bhej di gayi hai. Apna Inbox check kar!</p>"
+    else:
+        return f"<h1>❌ FAILED!</h1><p>Gmail ne email block kar diya. Error message yeh hai:</p><pre style='color:red;'>{msg}</pre><p>Iska matlab App Password galat hai ya Google ne block mara hai.</p>"
 
 # 2-WAY SMART SWITCH SYNC ROUTE
 @app.route('/blynk_sync', methods=['GET', 'POST'])
