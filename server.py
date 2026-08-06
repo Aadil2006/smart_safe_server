@@ -31,14 +31,10 @@ try:
     if settings_collection.count_documents({"type": "master_pin"}) == 0:
         settings_collection.insert_one({"type": "master_pin", "pin": "1234"})
 
-    client.server_info() 
     print("✅ Server Started & Database Connected Successfully.")
 except Exception as e:
     print("❌ Database Connection Error:", e)
 
-# ==========================================
-# 3. HTML WEB DASHBOARD (UI Design)
-# ==========================================
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html>
@@ -59,9 +55,7 @@ DASHBOARD_HTML = """
 <body>
     <h1>🔐 Smart Safe Web Portal</h1>
     <p>Logged in as Administrator</p>
-    
     <button class="btn" onclick="remoteUnlock()">🔓 UNLOCK SAFE (REMOTE)</button>
-    
     <h2>Live Access Records (From MongoDB)</h2>
     <table>
         <tr><th>Date & Time</th><th>User / Method</th><th>Status</th></tr>
@@ -71,7 +65,6 @@ DASHBOARD_HTML = """
         <tr><td colspan="3">No records yet. Waiting for Safe to connect...</td></tr>
         {% endfor %}
     </table>
-
     <script>
         function remoteUnlock() {
             fetch('/web_unlock', { method: 'POST' })
@@ -83,48 +76,30 @@ DASHBOARD_HTML = """
 </html>
 """
 
-# ==========================================
-# 4. API FOR ESP32 & BLYNK
-# ==========================================
-
 @app.route('/log', methods=['POST'])
 def log_access():
     try:
         data = request.get_json()
         tag = data.get("rfid_tag", "Unknown")
         status = data.get("status", "Unknown")
-        
-        log_entry = {
-            "rfid_tag": tag,
-            "status": status,
-            "timestamp": datetime.now()
-        }
+        log_entry = {"rfid_tag": tag, "status": status, "timestamp": datetime.now()}
         collection.insert_one(log_entry)
         
         alert_msg = ""
-        if status == "Lockout":
-            alert_msg = "🚨 SECURITY: 30s Lockout Active!"
-        elif status == "Locked":
-            alert_msg = "🔒 Safe is now Locked"
-        elif "Denied" in status:
-            alert_msg = f"🚫 Intruder: {tag} Denied!"
-        else:
-            alert_msg = f"✅ Unlocked by {tag}"
+        if status == "Lockout": alert_msg = "🚨 SECURITY: 30s Lockout Active!"
+        elif status == "Locked": alert_msg = "🔒 Safe is now Locked"
+        elif "Denied" in status: alert_msg = f"🚫 Intruder: {tag} Denied!"
+        else: alert_msg = f"✅ Unlocked by {tag}"
 
         try:
             requests.get(f"{BLYNK_URL}/update?token={BLYNK_AUTH_TOKEN}&v2={alert_msg}")
-        except Exception as e:
-            pass
-
+        except: pass
         return jsonify({"message": "Log saved"}), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception as e: return jsonify({"error": str(e)}), 500
 
 def clear_otp():
-    try:
-        requests.get(f"{BLYNK_URL}/update?token={BLYNK_AUTH_TOKEN}&v1=---")
-    except:
-        pass
+    try: requests.get(f"{BLYNK_URL}/update?token={BLYNK_AUTH_TOKEN}&v1=---")
+    except: pass
 
 @app.route('/send_otp', methods=['POST'])
 def send_otp():
@@ -132,35 +107,34 @@ def send_otp():
         data = request.get_json()
         otp = data.get('otp', '0000')
         requests.get(f"{BLYNK_URL}/update?token={BLYNK_AUTH_TOKEN}&v1=OTP: {otp}")
-        
         threading.Timer(60.0, clear_otp).start()
-        
         return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception as e: return jsonify({"error": str(e)}), 500
 
 # ==========================================
-# 📧 EMAIL SENDING SYSTEM (NETWORK UNREACHABLE FIX)
+# 📧 EMAIL SENDING API (HTTP FORM SUBMIT) - RENDER BLOCK BYPASS
 # ==========================================
 EMAIL_ID = "aadilarora36@gmail.com"
-APP_PASS = "flwfamjqpthgiwji"
 
 def send_email_sync(subject, body):
     try:
-        msg = MIMEText(body)
-        msg['Subject'] = subject
-        msg['From'] = EMAIL_ID
-        msg['To'] = EMAIL_ID
+        # SMTP block bypass using FormSubmit HTTP POST
+        url = f"https://formsubmit.co/ajax/{EMAIL_ID}"
+        payload = {
+            "name": "Smart Safe Alert",
+            "_subject": subject,
+            "message": body,
+            "_captcha": "false" # Disables captcha
+        }
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
         
-        # AADIL'S FIX: Switched back to SMTP_SSL (Port 465)
-        # Port 587 sometimes causes "Network unreachable" on free cloud providers
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=10)
-        server.login(EMAIL_ID, APP_PASS)
-        server.send_message(msg)
-        server.quit()
-        return True, "Email sent successfully!"
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            return True, "Email sent via HTTP API successfully!"
+        else:
+            return False, f"HTTP Error: {response.text}"
     except Exception as e:
-        print("❌ Email Failed:", e)
         return False, str(e)
 
 def send_email_async(subject, body):
@@ -179,15 +153,12 @@ def send_email():
 
 @app.route('/test_email', methods=['GET'])
 def test_email():
-    success, msg = send_email_sync("🛠️ Smart Safe Test", "Bhai! Agar ye message mil gaya, toh matlab Port 465 wala SSL bypass bilkul theek kaam kar raha hai!")
+    success, msg = send_email_sync("🛠️ Smart Safe Setup", "Bhai! Agar tujhe ye email mila hai, toh tera Email API perfect chal raha hai.")
     if success:
-        return f"<h1>✅ SUCCESS!</h1><p>Email tere {EMAIL_ID} par bhej di gayi hai. Apna Inbox check kar!</p>"
+        return f"<h1>✅ EMAIL COMMAND SENT!</h1><p>Apna Inbox check kar. Agar FormSubmit se koi 'Action Required' ka email aaya hai toh usme <b>Activate</b> daba dena. Uske baad sab apne aap chalega.</p>"
     else:
         return f"<h1>❌ FAILED!</h1><p>Error message yeh hai:</p><pre style='color:red;'>{msg}</pre>"
 
-# ==========================================
-# 2-WAY SMART SWITCH SYNC ROUTE 
-# ==========================================
 @app.route('/blynk_sync', methods=['GET', 'POST'])
 def blynk_sync():
     try:
@@ -197,48 +168,33 @@ def blynk_sync():
             return jsonify({"success": True})
         else:
             res = requests.get(f"{BLYNK_URL}/get?token={BLYNK_AUTH_TOKEN}&v4", timeout=5)
-            if res.status_code == 200 and "1" in res.text:
-                return "1"
-            elif res.status_code == 200 and "0" in res.text:
-                return "0"
-            else:
-                return "ERROR"
-    except Exception as e:
-        return "ERROR"
+            if res.status_code == 200 and "1" in res.text: return "1"
+            elif res.status_code == 200 and "0" in res.text: return "0"
+            else: return "ERROR"
+    except: return "ERROR"
 
 @app.route('/get_pin', methods=['GET'])
 def get_pin():
     try:
         doc = settings_collection.find_one({"type": "master_pin"})
         return jsonify({"pin": str(doc["pin"])}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception as e: return jsonify({"error": str(e)}), 500
 
 @app.route('/update_pin', methods=['POST'])
 def update_pin():
     try:
-        data = request.get_json()
-        new_pin = data.get("new_pin")
+        new_pin = request.get_json().get("new_pin")
         settings_collection.update_one({"type": "master_pin"}, {"$set": {"pin": str(new_pin)}})
         return jsonify({"message": "PIN updated"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception as e: return jsonify({"error": str(e)}), 500
 
-# ==========================================
-# 5. WEB ROUTES (Login & UI)
-# ==========================================
 @app.route('/')
 def index():
     auth = request.authorization
     if not auth or not (auth.username == WEB_USER and auth.password == WEB_PASS):
-        return Response('Security Alert: Login Required to access Smart Safe.', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
-    
+        return Response('Security Alert: Login Required.', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
     logs_cursor = collection.find().sort("timestamp", -1).limit(50)
-    logs_list = []
-    for log in logs_cursor:
-        time_format = log['timestamp'].strftime("%Y-%m-%d %H:%M:%S") if isinstance(log.get('timestamp'), datetime) else "Unknown Time"
-        logs_list.append({"time_str": time_format, "rfid_tag": log.get('rfid_tag', ''), "status": log.get('status', '')})
-        
+    logs_list = [{"time_str": log['timestamp'].strftime("%Y-%m-%d %H:%M:%S") if isinstance(log.get('timestamp'), datetime) else "Unknown", "rfid_tag": log.get('rfid_tag', ''), "status": log.get('status', '')} for log in logs_cursor]
     return render_template_string(DASHBOARD_HTML, logs=logs_list)
 
 @app.route('/web_unlock', methods=['POST'])
@@ -248,5 +204,4 @@ def web_unlock():
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
-    print(f"🚀 Server running on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
