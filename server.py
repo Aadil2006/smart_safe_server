@@ -4,8 +4,6 @@ from pymongo import MongoClient
 from datetime import datetime
 import threading
 import requests
-import smtplib
-from email.mime.text import MIMEText
 
 app = Flask(__name__)
 
@@ -76,6 +74,59 @@ DASHBOARD_HTML = """
 </html>
 """
 
+# ==========================================
+# 📧 EMAIL SENDING API (GOOGLE APPS SCRIPT) - 100% BULLETPROOF
+# ==========================================
+# 👇 YAHAN APNA GOOGLE SCRIPT WALA LINK PASTE KAR 👇
+GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzyrcRKzeJ_RbCNPiPpu9EM_uMgsjue1kUhru1UnezR_NLw0isrWO6ngMwt7nR5h5lR/exec"
+EMAIL_ID = "aadilarora36@gmail.com"
+
+def send_email_sync(subject, body):
+    try:
+        payload = {
+            "subject": subject,
+            "body": body,
+            "email": EMAIL_ID
+        }
+        headers = {"Content-Type": "application/json"}
+        response = requests.post(GOOGLE_SCRIPT_URL, json=payload, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            return True, "Email sent via Google API successfully!"
+        else:
+            return False, f"HTTP Error: {response.text}"
+    except Exception as e:
+        return False, str(e)
+
+def send_email_async(subject, body):
+    send_email_sync(subject, body)
+
+@app.route('/send_email', methods=['POST'])
+def send_email():
+    try:
+        data = request.get_json()
+        subject = data.get("subject", "Smart Safe Alert")
+        body = data.get("body", "")
+        threading.Thread(target=send_email_async, args=(subject, body)).start()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/test_email', methods=['GET'])
+def test_email():
+    if GOOGLE_SCRIPT_URL == "TERA_GOOGLE_SCRIPT_LINK_YAHAN_DAAL":
+        return "<h1>❌ FAILED!</h1><p>Bhai pehle server.py me apna Google Script ka link toh paste kar line 76 par!</p>"
+    
+    success, msg = send_email_sync("🛠️ Smart Safe Setup", "Bhai Aadil! Tera naya Google API wala system ekdum makkhan chal raha hai. Ab Render ya Cloudflare tujhe block nahi kar sakte!")
+    if success:
+        return f"<h1>✅ EMAIL COMMAND SENT!</h1><p>Apna {EMAIL_ID} ka Inbox check kar. Email instantly aa gayi hogi bina kisi error ke!</p>"
+    else:
+        return f"<h1>❌ FAILED!</h1><p>Error message yeh hai:</p><pre style='color:red;'>{msg}</pre>"
+
+# ==========================================
+# 4. API FOR ESP32 & BLYNK
+# ==========================================
+
 @app.route('/log', methods=['POST'])
 def log_access():
     try:
@@ -110,54 +161,6 @@ def send_otp():
         threading.Timer(60.0, clear_otp).start()
         return jsonify({"success": True})
     except Exception as e: return jsonify({"error": str(e)}), 500
-
-# ==========================================
-# 📧 EMAIL SENDING API (HTTP FORM SUBMIT) - RENDER BLOCK BYPASS
-# ==========================================
-EMAIL_ID = "aadilarora36@gmail.com"
-
-def send_email_sync(subject, body):
-    try:
-        # SMTP block bypass using FormSubmit HTTP POST
-        url = f"https://formsubmit.co/ajax/{EMAIL_ID}"
-        payload = {
-            "name": "Smart Safe Alert",
-            "_subject": subject,
-            "message": body,
-            "_captcha": "false" # Disables captcha
-        }
-        headers = {"Content-Type": "application/json", "Accept": "application/json"}
-        
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            return True, "Email sent via HTTP API successfully!"
-        else:
-            return False, f"HTTP Error: {response.text}"
-    except Exception as e:
-        return False, str(e)
-
-def send_email_async(subject, body):
-    send_email_sync(subject, body)
-
-@app.route('/send_email', methods=['POST'])
-def send_email():
-    try:
-        data = request.get_json()
-        subject = data.get("subject", "Smart Safe Alert")
-        body = data.get("body", "")
-        threading.Thread(target=send_email_async, args=(subject, body)).start()
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/test_email', methods=['GET'])
-def test_email():
-    success, msg = send_email_sync("🛠️ Smart Safe Setup", "Bhai! Agar tujhe ye email mila hai, toh tera Email API perfect chal raha hai.")
-    if success:
-        return f"<h1>✅ EMAIL COMMAND SENT!</h1><p>Apna Inbox check kar. Agar FormSubmit se koi 'Action Required' ka email aaya hai toh usme <b>Activate</b> daba dena. Uske baad sab apne aap chalega.</p>"
-    else:
-        return f"<h1>❌ FAILED!</h1><p>Error message yeh hai:</p><pre style='color:red;'>{msg}</pre>"
 
 @app.route('/blynk_sync', methods=['GET', 'POST'])
 def blynk_sync():
