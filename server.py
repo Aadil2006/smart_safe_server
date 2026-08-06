@@ -140,9 +140,8 @@ def send_otp():
         return jsonify({"error": str(e)}), 500
 
 # ==========================================
-# 📧 EMAIL SENDING SYSTEM (BUG FIXED)
+# 📧 EMAIL SENDING SYSTEM (FIXED 502 ERROR)
 # ==========================================
-# Spaces removed from App Password - This fixes 90% of login failures
 EMAIL_ID = "aadilarora36@gmail.com"
 APP_PASS = "flwfamjqpthgiwji"
 
@@ -153,8 +152,10 @@ def send_email_sync(subject, body):
         msg['From'] = EMAIL_ID
         msg['To'] = EMAIL_ID
         
-        # Port 465 SSL is secure and rarely blocked by Render
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        # FIX: Changed to Port 587 (STARTTLS) with 10-sec timeout so it doesn't crash Render
+        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
+        server.ehlo()
+        server.starttls() 
         server.login(EMAIL_ID, APP_PASS)
         server.send_message(msg)
         server.quit()
@@ -172,36 +173,40 @@ def send_email():
         data = request.get_json()
         subject = data.get("subject", "Smart Safe Alert")
         body = data.get("body", "")
-        # Run email in background so ESP32 doesn't hang
         threading.Thread(target=send_email_async, args=(subject, body)).start()
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# 🔥 NAYA TEST ROUTE - TAAKI TU BROWSER SE CHECK KAR SAKE
 @app.route('/test_email', methods=['GET'])
 def test_email():
-    success, msg = send_email_sync("🛠️ Smart Safe Test", "Bhai, tera Render server successfully email bhej raha hai. Code ekdum perfect hai!")
+    success, msg = send_email_sync("🛠️ Smart Safe Test", "Bhai, tera Render server successfully email bhej raha hai. 502 Error fix ho gaya!")
     if success:
         return f"<h1>✅ SUCCESS!</h1><p>Email tere {EMAIL_ID} par bhej di gayi hai. Apna Inbox check kar!</p>"
     else:
-        return f"<h1>❌ FAILED!</h1><p>Gmail ne email block kar diya. Error message yeh hai:</p><pre style='color:red;'>{msg}</pre><p>Iska matlab App Password galat hai ya Google ne block mara hai.</p>"
+        return f"<h1>❌ FAILED!</h1><p>Error message yeh hai:</p><pre style='color:red;'>{msg}</pre>"
 
-# 2-WAY SMART SWITCH SYNC ROUTE
+# ==========================================
+# 2-WAY SMART SWITCH SYNC ROUTE (AUTO-LOCK FIX)
+# ==========================================
 @app.route('/blynk_sync', methods=['GET', 'POST'])
 def blynk_sync():
     try:
         if request.method == 'POST':
             state = request.get_json().get("state", "0")
-            requests.get(f"{BLYNK_URL}/update?token={BLYNK_AUTH_TOKEN}&v4={state}")
+            requests.get(f"{BLYNK_URL}/update?token={BLYNK_AUTH_TOKEN}&v4={state}", timeout=5)
             return jsonify({"success": True})
         else:
-            res = requests.get(f"{BLYNK_URL}/get?token={BLYNK_AUTH_TOKEN}&v4")
+            res = requests.get(f"{BLYNK_URL}/get?token={BLYNK_AUTH_TOKEN}&v4", timeout=5)
             if res.status_code == 200 and "1" in res.text:
                 return "1"
-            return "0"
+            elif res.status_code == 200 and "0" in res.text:
+                return "0"
+            else:
+                return "ERROR" # Fix: Pehle yahan '0' return ho raha tha error aane pe
     except Exception as e:
-        return "0"
+        print("Blynk Sync Error:", e)
+        return "ERROR" # Fix: Error me ab '0' nahi jayega
 
 @app.route('/get_pin', methods=['GET'])
 def get_pin():
