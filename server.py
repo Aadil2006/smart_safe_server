@@ -140,7 +140,7 @@ def send_otp():
         return jsonify({"error": str(e)}), 500
 
 # ==========================================
-# 📧 EMAIL SENDING SYSTEM (FIXED 502 ERROR)
+# 📧 EMAIL SENDING SYSTEM (NETWORK UNREACHABLE FIX)
 # ==========================================
 EMAIL_ID = "aadilarora36@gmail.com"
 APP_PASS = "flwfamjqpthgiwji"
@@ -152,10 +152,9 @@ def send_email_sync(subject, body):
         msg['From'] = EMAIL_ID
         msg['To'] = EMAIL_ID
         
-        # FIX: Changed to Port 587 (STARTTLS) with 10-sec timeout so it doesn't crash Render
-        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
-        server.ehlo()
-        server.starttls() 
+        # AADIL'S FIX: Switched back to SMTP_SSL (Port 465)
+        # Port 587 sometimes causes "Network unreachable" on free cloud providers
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=10)
         server.login(EMAIL_ID, APP_PASS)
         server.send_message(msg)
         server.quit()
@@ -180,14 +179,14 @@ def send_email():
 
 @app.route('/test_email', methods=['GET'])
 def test_email():
-    success, msg = send_email_sync("🛠️ Smart Safe Test", "Bhai, tera Render server successfully email bhej raha hai. 502 Error fix ho gaya!")
+    success, msg = send_email_sync("🛠️ Smart Safe Test", "Bhai! Agar ye message mil gaya, toh matlab Port 465 wala SSL bypass bilkul theek kaam kar raha hai!")
     if success:
         return f"<h1>✅ SUCCESS!</h1><p>Email tere {EMAIL_ID} par bhej di gayi hai. Apna Inbox check kar!</p>"
     else:
         return f"<h1>❌ FAILED!</h1><p>Error message yeh hai:</p><pre style='color:red;'>{msg}</pre>"
 
 # ==========================================
-# 2-WAY SMART SWITCH SYNC ROUTE (AUTO-LOCK FIX)
+# 2-WAY SMART SWITCH SYNC ROUTE 
 # ==========================================
 @app.route('/blynk_sync', methods=['GET', 'POST'])
 def blynk_sync():
@@ -203,10 +202,9 @@ def blynk_sync():
             elif res.status_code == 200 and "0" in res.text:
                 return "0"
             else:
-                return "ERROR" # Fix: Pehle yahan '0' return ho raha tha error aane pe
+                return "ERROR"
     except Exception as e:
-        print("Blynk Sync Error:", e)
-        return "ERROR" # Fix: Error me ab '0' nahi jayega
+        return "ERROR"
 
 @app.route('/get_pin', methods=['GET'])
 def get_pin():
