@@ -33,70 +33,153 @@ try:
 except Exception as e:
     print("❌ Database Connection Error:", e)
 
+# ==========================================
+# 3. ADVANCED WEB DASHBOARD (UI 2.0)
+# ==========================================
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Smart Safe Web Portal</title>
+    <title>Smart Safe Command Center</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1a1a2e; color: white; text-align: center; margin: 0; padding: 20px;}
-        h1 { color: #e94560; }
-        table { width: 100%; max-width: 800px; margin: 20px auto; border-collapse: collapse; background: #16213e; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        th, td { padding: 15px; border-bottom: 1px solid #0f3460; }
-        th { background: #e94560; color: white; text-transform: uppercase; }
-        tr:hover { background-color: #0f3460; }
-        .btn { padding: 15px 40px; background: #0f3460; color: white; border: 2px solid #e94560; font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 8px; transition: 0.3s; margin-bottom: 20px; }
-        .btn:hover { background: #e94560; }
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #3b82f6; --text: #f8fafc; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 10px; }
+        h1 { color: var(--accent); margin: 0; font-size: 24px; }
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        
+        .btn { padding: 12px 20px; background: var(--card); border: 2px solid var(--accent); color: var(--text); border-radius: 8px; cursor: pointer; transition: 0.3s; font-weight: bold; }
+        .btn:hover { background: var(--accent); }
+        .btn-danger { border-color: var(--danger); color: var(--danger); }
+        .btn-danger:hover { background: var(--danger); color: white; }
+        
+        .search-box { padding: 12px; border-radius: 8px; border: 1px solid #334155; background: var(--card); color: white; flex-grow: 1; font-size: 16px; outline: none; }
+        .search-box:focus { border-color: var(--accent); }
+        
+        table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #334155; }
+        th { background: #0b1120; color: var(--accent); text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px; }
+        tr:hover { background: #334155; }
+        
+        /* Badges for Status */
+        .badge { padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; display: inline-block; }
+        .badge.granted { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); }
+        .badge.denied { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+        .badge.locked { background: rgba(245, 158, 11, 0.2); color: var(--warning); border: 1px solid var(--warning); }
     </style>
 </head>
 <body>
-    <h1>🔐 Smart Safe Web Portal</h1>
-    <p>Logged in as Administrator</p>
-    <button class="btn" onclick="remoteUnlock()">🔓 UNLOCK SAFE (REMOTE)</button>
-    <h2>Live Access Records (From MongoDB)</h2>
-    <table>
-        <tr><th>Date & Time</th><th>User / Method</th><th>Status</th></tr>
-        {% for log in logs %}
-        <tr><td>{{ log.time_str }}</td><td>{{ log.rfid_tag }}</td><td>{{ log.status }}</td></tr>
-        {% else %}
-        <tr><td colspan="3">No records yet. Waiting for Safe to connect...</td></tr>
-        {% endfor %}
-    </table>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ Smart Safe Command Center</h1>
+            <span style="color: #94a3b8; font-size: 14px;">Logged in as <b>Admin</b></span>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-danger" onclick="remoteUnlock()">🔓 Remote Unlock</button>
+            <button class="btn" onclick="exportCSV()">📥 Download CSV Logs</button>
+            <input type="text" id="searchInput" class="search-box" placeholder="🔍 Search logs by User, Date, or Status..." onkeyup="filterTable()">
+        </div>
+
+        <table id="logTable">
+            <tr><th>Date & Time</th><th>User / Method</th><th>Status</th></tr>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.time_str }}</td>
+                <td><strong>{{ log.rfid_tag }}</strong></td>
+                <td>
+                    {% if 'Granted' in log.status or 'Unlocked' in log.status %}
+                        <span class="badge granted">{{ log.status }}</span>
+                    {% elif 'Denied' in log.status or 'Lockout' in log.status %}
+                        <span class="badge denied">{{ log.status }}</span>
+                    {% else %}
+                        <span class="badge locked">{{ log.status }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" style="text-align: center; color: #94a3b8;">No records yet. Waiting for Safe to connect...</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+
     <script>
+        // 1. Remote Unlock Function
         function remoteUnlock() {
-            fetch('/web_unlock', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => alert("Unlock Command Sent to Safe!"));
+            if(confirm("⚠️ SECURITY WARNING: Are you sure you want to unlock the safe remotely?")) {
+                fetch('/web_unlock', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    alert("✅ Unlock Command Sent to Safe!");
+                    setTimeout(() => location.reload(), 2000);
+                });
+            }
         }
+
+        // 2. Live Search Filter
+        function filterTable() {
+            let input = document.getElementById("searchInput");
+            let filter = input.value.toUpperCase();
+            let table = document.getElementById("logTable");
+            let tr = table.getElementsByTagName("tr");
+            
+            for (let i = 1; i < tr.length; i++) {
+                let txtValue = tr[i].textContent || tr[i].innerText;
+                if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+
+        // 3. Export to CSV Excel
+        function exportCSV() {
+            let table = document.getElementById("logTable");
+            let rows = table.querySelectorAll("tr");
+            let csv = [];
+            for (let i = 0; i < rows.length; i++) {
+                let row = [], cols = rows[i].querySelectorAll("td, th");
+                for (let j = 0; j < cols.length; j++) row.push('"' + cols[j].innerText + '"');
+                csv.push(row.join(","));
+            }
+            let csvFile = new Blob([csv.join("\\n")], {type: "text/csv"});
+            let downloadLink = document.createElement("a");
+            downloadLink.download = "SmartSafe_Access_Logs.csv";
+            downloadLink.href = window.URL.createObjectURL(csvFile);
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+        }
+
+        // 4. Auto-refresh page every 30 seconds (Only if not typing in search)
+        setInterval(() => {
+            if(!document.getElementById("searchInput").value) {
+                location.reload();
+            }
+        }, 30000);
     </script>
 </body>
 </html>
 """
 
 # ==========================================
-# 📧 EMAIL SENDING API (GOOGLE APPS SCRIPT) - 100% BULLETPROOF
+# 📧 EMAIL SENDING API (GOOGLE APPS SCRIPT)
 # ==========================================
-# 👇 YAHAN APNA GOOGLE SCRIPT WALA LINK PASTE KAR 👇
-GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzyrcRKzeJ_RbCNPiPpu9EM_uMgsjue1kUhru1UnezR_NLw0isrWO6ngMwt7nR5h5lR/exec"
+# 👇 YAHAN APNA GOOGLE SCRIPT WALA LINK WAPAS PASTE KAR DENA 👇
+GOOGLE_SCRIPT_URL = "TERA_GOOGLE_SCRIPT_LINK_YAHAN_DAAL"
 EMAIL_ID = "aadilarora36@gmail.com"
 
 def send_email_sync(subject, body):
     try:
-        payload = {
-            "subject": subject,
-            "body": body,
-            "email": EMAIL_ID
-        }
+        payload = {"subject": subject, "body": body, "email": EMAIL_ID}
         headers = {"Content-Type": "application/json"}
         response = requests.post(GOOGLE_SCRIPT_URL, json=payload, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            return True, "Email sent via Google API successfully!"
-        else:
-            return False, f"HTTP Error: {response.text}"
-    except Exception as e:
-        return False, str(e)
+        if response.status_code == 200: return True, "Email sent successfully!"
+        else: return False, f"HTTP Error: {response.text}"
+    except Exception as e: return False, str(e)
 
 def send_email_async(subject, body):
     send_email_sync(subject, body)
@@ -109,19 +192,13 @@ def send_email():
         body = data.get("body", "")
         threading.Thread(target=send_email_async, args=(subject, body)).start()
         return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception as e: return jsonify({"error": str(e)}), 500
 
 @app.route('/test_email', methods=['GET'])
 def test_email():
-    if GOOGLE_SCRIPT_URL == "TERA_GOOGLE_SCRIPT_LINK_YAHAN_DAAL":
-        return "<h1>❌ FAILED!</h1><p>Bhai pehle server.py me apna Google Script ka link toh paste kar line 76 par!</p>"
-    
-    success, msg = send_email_sync("🛠️ Smart Safe Setup", "Bhai Aadil! Tera naya Google API wala system ekdum makkhan chal raha hai. Ab Render ya Cloudflare tujhe block nahi kar sakte!")
-    if success:
-        return f"<h1>✅ EMAIL COMMAND SENT!</h1><p>Apna {EMAIL_ID} ka Inbox check kar. Email instantly aa gayi hogi bina kisi error ke!</p>"
-    else:
-        return f"<h1>❌ FAILED!</h1><p>Error message yeh hai:</p><pre style='color:red;'>{msg}</pre>"
+    success, msg = send_email_sync("🛠️ Smart Safe Setup", "Bhai Aadil! Tera naya Google API wala system ekdum makkhan chal raha hai.")
+    if success: return f"<h1>✅ EMAIL COMMAND SENT!</h1><p>Check {EMAIL_ID} Inbox.</p>"
+    else: return f"<h1>❌ FAILED!</h1><pre style='color:red;'>{msg}</pre>"
 
 # ==========================================
 # 4. API FOR ESP32 & BLYNK
@@ -142,8 +219,7 @@ def log_access():
         elif "Denied" in status: alert_msg = f"🚫 Intruder: {tag} Denied!"
         else: alert_msg = f"✅ Unlocked by {tag}"
 
-        try:
-            requests.get(f"{BLYNK_URL}/update?token={BLYNK_AUTH_TOKEN}&v2={alert_msg}")
+        try: requests.get(f"{BLYNK_URL}/update?token={BLYNK_AUTH_TOKEN}&v2={alert_msg}")
         except: pass
         return jsonify({"message": "Log saved"}), 201
     except Exception as e: return jsonify({"error": str(e)}), 500
