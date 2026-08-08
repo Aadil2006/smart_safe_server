@@ -42,7 +42,6 @@ DASHBOARD_HTML = """
 <head>
     <title>Smart Safe Command Center</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- Chart.js Library -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --accent: #3b82f6; --text: #f8fafc; --border: #334155; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --th-bg: #0b1120; }
@@ -61,8 +60,6 @@ DASHBOARD_HTML = """
         .btn:hover { background: var(--accent); color: #fff; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3); }
         .btn-danger { border-color: var(--danger); color: var(--danger); }
         .btn-danger:hover { background: var(--danger); color: white; box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3); }
-        
-        /* Voice AI Button Styling */
         .btn-voice { border-color: #8b5cf6; color: #8b5cf6; }
         .btn-voice:hover { background: #8b5cf6; color: white; box-shadow: 0 5px 15px rgba(139, 92, 246, 0.3); }
         #listeningIndicator { display: none; color: #8b5cf6; font-weight: bold; animation: blink 1s infinite; margin-left: 10px; font-size: 14px;}
@@ -76,7 +73,7 @@ DASHBOARD_HTML = """
         .stat-card { background: var(--card); padding: 20px; border-radius: 10px; text-align: center; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .stat-card h3 { margin: 0; font-size: 13px; color: #94a3b8; text-transform: uppercase; }
         .stat-card h2 { margin: 10px 0 0 0; font-size: 32px; }
-        .chart-card { flex: 1; background: var(--card); padding: 15px; border-radius: 10px; border: 1px solid var(--border); display: flex; justify-content: center; align-items: center; min-width: 200px; height: 130px; }
+        .chart-card { flex: 1; background: var(--card); padding: 15px; border-radius: 10px; border: 1px solid var(--border); display: flex; justify-content: center; align-items: center; min-width: 200px; height: 130px; position: relative; }
         
         table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
         th, td { padding: 15px; text-align: left; border-bottom: 1px solid var(--border); }
@@ -166,7 +163,34 @@ DASHBOARD_HTML = """
         }
         if(localStorage.getItem('theme') === 'light') toggleTheme();
 
-        // 2. Chart Initialization
+        // 2. Dynamic Stats Update (CRASH-PROOF)
+        function updateStats() {
+            try {
+                let rows = document.querySelectorAll("#logTable tr");
+                let total = 0, granted = 0, denied = 0;
+                
+                for (let i = 1; i < rows.length; i++) {
+                    if (rows[i].style.display !== "none" && !rows[i].querySelector("#noRecords")) {
+                        total++;
+                        // Safe check for cell existence
+                        if (rows[i].cells.length > 2) {
+                            let statusText = rows[i].cells[2].innerText.toUpperCase();
+                            if(statusText.includes("GRANTED") || statusText.includes("UNLOCKED")) granted++;
+                            if(statusText.includes("DENIED") || statusText.includes("LOCKOUT")) denied++;
+                        }
+                    }
+                }
+                
+                document.getElementById("totalLogs").innerText = total;
+                document.getElementById("totalGranted").innerText = granted;
+                document.getElementById("totalDenied").innerText = denied;
+                
+                // Trigger Chart Update safely
+                updateChartData(granted, denied);
+            } catch(e) { console.error("Stats Error:", e); }
+        }
+
+        // 3. Chart Initialization & Update
         let myChart;
         function initChart() {
             let ctx = document.getElementById('securityChart').getContext('2d');
@@ -192,34 +216,34 @@ DASHBOARD_HTML = """
             });
         }
 
-        // 3. Dynamic Stats & Chart Update
-        function updateStats() {
-            let rows = document.querySelectorAll("#logTable tr");
-            let total = 0, granted = 0, denied = 0;
-            
-            for (let i = 1; i < rows.length; i++) {
-                if (rows[i].style.display !== "none" && !rows[i].querySelector("#noRecords")) {
-                    total++;
-                    let statusText = rows[i].cells[2].innerText.toUpperCase();
-                    if(statusText.includes("GRANTED") || statusText.includes("UNLOCKED")) granted++;
-                    if(statusText.includes("DENIED") || statusText.includes("LOCKOUT")) denied++;
-                }
-            }
-            
-            document.getElementById("totalLogs").innerText = total;
-            document.getElementById("totalGranted").innerText = granted;
-            document.getElementById("totalDenied").innerText = denied;
-            
+        function updateChartData(granted, denied) {
             if(typeof myChart !== 'undefined' && myChart) {
-                myChart.data.datasets[0].data = [granted, denied];
+                // Fix for empty data breaking the chart
+                if (granted === 0 && denied === 0) {
+                    myChart.data.datasets[0].data = [1];
+                    myChart.data.datasets[0].backgroundColor = ['#334155'];
+                    myChart.data.labels = ['No Data Yet'];
+                } else {
+                    myChart.data.datasets[0].data = [granted, denied];
+                    myChart.data.datasets[0].backgroundColor = ['#10b981', '#ef4444'];
+                    myChart.data.labels = ['Granted', 'Breach'];
+                }
                 myChart.update();
             }
         }
-        
+
+        // Execution Order (Stats BEFORE Chart to avoid freezing)
         window.onload = function() {
-            initChart();
-            updateStats();
-            updateChartTheme();
+            updateStats(); // Force numbers to load first!
+            try {
+                if (typeof Chart !== 'undefined') {
+                    initChart();
+                    updateStats(); // Update chart with numbers
+                    updateChartTheme();
+                } else {
+                    document.getElementById('securityChart').outerHTML = "<span style='color:#94a3b8; font-size:12px;'>Chart Loading...</span>";
+                }
+            } catch(e) { console.error("Chart load failed", e); }
         };
 
         // 4. Search Filter
