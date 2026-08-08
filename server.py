@@ -43,37 +43,37 @@ DASHBOARD_HTML = """
     <title>Smart Safe Command Center</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        /* CSS Variables for Dark/Light Mode */
         :root { --bg: #0f172a; --card: #1e293b; --accent: #3b82f6; --text: #f8fafc; --border: #334155; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --th-bg: #0b1120; }
         body.light-mode { --bg: #f1f5f9; --card: #ffffff; --accent: #2563eb; --text: #0f172a; --border: #cbd5e1; --th-bg: #e2e8f0; }
         
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; transition: background 0.3s, color 0.3s; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; transition: 0.3s; }
         .container { max-width: 1000px; margin: auto; }
         
-        /* Header & Buttons */
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-        h1 { color: var(--accent); margin: 0; font-size: 26px; }
+        h1 { color: var(--accent); margin: 0; font-size: 26px; display: flex; align-items: center; gap: 10px; }
+        
+        /* 🔴 Blinking Live Dot */
+        .live-dot { width: 12px; height: 12px; background-color: var(--danger); border-radius: 50%; box-shadow: 0 0 10px var(--danger); animation: blink 1.5s infinite; }
+        @keyframes blink { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }
+        
         .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
         .btn { padding: 10px 18px; background: var(--card); border: 2px solid var(--accent); color: var(--text); border-radius: 8px; cursor: pointer; transition: 0.3s; font-weight: bold; }
-        .btn:hover { background: var(--accent); color: #fff; }
+        .btn:hover { background: var(--accent); color: #fff; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3); }
         .btn-danger { border-color: var(--danger); color: var(--danger); }
-        .btn-danger:hover { background: var(--danger); color: white; }
-        .search-box { padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); flex-grow: 1; font-size: 16px; outline: none; }
-        .search-box:focus { border-color: var(--accent); }
+        .btn-danger:hover { background: var(--danger); color: white; box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3); }
+        .search-box { padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); flex-grow: 1; font-size: 16px; outline: none; transition: 0.3s; }
+        .search-box:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(59, 130, 246, 0.2); }
         
-        /* Analytics Cards */
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
-        .stat-card { background: var(--card); padding: 20px; border-radius: 10px; text-align: center; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.3s; }
-        .stat-card h3 { margin: 0; font-size: 14px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-card { background: var(--card); padding: 20px; border-radius: 10px; text-align: center; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .stat-card h3 { margin: 0; font-size: 14px; color: #94a3b8; text-transform: uppercase; }
         .stat-card h2 { margin: 10px 0 0 0; font-size: 32px; }
         
-        /* Table Styles */
-        table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
         th, td { padding: 15px; text-align: left; border-bottom: 1px solid var(--border); }
-        th { background: var(--th-bg); color: var(--accent); text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px; }
+        th { background: var(--th-bg); color: var(--accent); text-transform: uppercase; font-size: 0.9em; }
         tr:hover { background: rgba(59, 130, 246, 0.05); }
         
-        /* Badges */
         .badge { padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; display: inline-block; }
         .badge.granted { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid var(--success); }
         .badge.denied { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid var(--danger); }
@@ -83,27 +83,17 @@ DASHBOARD_HTML = """
 <body>
     <div class="container">
         <div class="header">
-            <h1>🛡️ Command Center</h1>
+            <h1><div class="live-dot"></div> 🛡️ Command Center</h1>
             <div>
                 <button id="themeBtn" class="btn" onclick="toggleTheme()" style="margin-right: 10px;">☀️ Light Mode</button>
                 <span style="color: #94a3b8; font-size: 14px;">Logged in as <b>Admin</b></span>
             </div>
         </div>
         
-        <!-- Live Analytics Stats -->
         <div class="stats-grid">
-            <div class="stat-card">
-                <h3>Total Activity</h3>
-                <h2 id="totalLogs">0</h2>
-            </div>
-            <div class="stat-card">
-                <h3>Successful Unlocks</h3>
-                <h2 id="totalGranted" style="color: var(--success);">0</h2>
-            </div>
-            <div class="stat-card">
-                <h3>Breach Attempts</h3>
-                <h2 id="totalDenied" style="color: var(--danger);">0</h2>
-            </div>
+            <div class="stat-card"><h3>Total Activity</h3><h2 id="totalLogs">0</h2></div>
+            <div class="stat-card"><h3>Successful Unlocks</h3><h2 id="totalGranted" style="color: var(--success);">0</h2></div>
+            <div class="stat-card"><h3>Breach Attempts</h3><h2 id="totalDenied" style="color: var(--danger);">0</h2></div>
         </div>
         
         <div class="controls">
@@ -113,11 +103,25 @@ DASHBOARD_HTML = """
         </div>
 
         <table id="logTable">
-            <tr><th>Date & Time</th><th>User / Method</th><th>Status</th></tr>
+            <tr><th>Date & Time</th><th>User Identity</th><th>Status</th></tr>
             {% for log in logs %}
             <tr>
                 <td>{{ log.time_str }}</td>
-                <td><strong>{{ log.rfid_tag }}</strong></td>
+                <td>
+                    <!-- 🧑‍💻 Smart Avatars Logic -->
+                    {% if 'Aadil' in log.rfid_tag %}
+                        <span style="font-size: 1.2em;">🧑‍💻</span>
+                    {% elif 'Family' in log.rfid_tag %}
+                        <span style="font-size: 1.2em;">👨‍👩‍👦</span>
+                    {% elif 'PIN' in log.rfid_tag %}
+                        <span style="font-size: 1.2em;">🔢</span>
+                    {% elif 'App' in log.rfid_tag %}
+                        <span style="font-size: 1.2em;">📱</span>
+                    {% else %}
+                        <span style="font-size: 1.2em;">⚠️</span>
+                    {% endif %}
+                    <strong>{{ log.rfid_tag }}</strong>
+                </td>
                 <td>
                     {% if 'Granted' in log.status or 'Unlocked' in log.status %}
                         <span class="badge granted">{{ log.status }}</span>
@@ -129,36 +133,31 @@ DASHBOARD_HTML = """
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="3" id="noRecords" style="text-align: center; color: #94a3b8;">No records yet. Waiting for Safe to connect...</td></tr>
+            <tr><td colspan="3" id="noRecords" style="text-align: center; color: #94a3b8;">Scanning for live events...</td></tr>
             {% endfor %}
         </table>
     </div>
 
     <script>
-        // 1. Theme Toggle Logic (Saves to LocalStorage)
+        // 1. Theme Logic
         function toggleTheme() {
             document.body.classList.toggle('light-mode');
             let btn = document.getElementById('themeBtn');
             if(document.body.classList.contains('light-mode')) {
-                btn.innerText = '🌙 Dark Mode';
-                localStorage.setItem('theme', 'light');
+                btn.innerText = '🌙 Dark Mode'; localStorage.setItem('theme', 'light');
             } else {
-                btn.innerText = '☀️ Light Mode';
-                localStorage.setItem('theme', 'dark');
+                btn.innerText = '☀️ Light Mode'; localStorage.setItem('theme', 'dark');
             }
         }
         if(localStorage.getItem('theme') === 'light') toggleTheme();
 
-        // 2. Calculate Dashboard Stats dynamically
+        // 2. Dynamic Stats
         function updateStats() {
             let rows = document.querySelectorAll("#logTable tr");
             let total = 0, granted = 0, denied = 0;
-            
-            // Check if there's no data
             if(document.getElementById("noRecords")) return; 
-            
             for (let i = 1; i < rows.length; i++) {
-                if (rows[i].style.display !== "none") { // Count only visible rows if searched
+                if (rows[i].style.display !== "none") {
                     total++;
                     let statusText = rows[i].cells[2].innerText.toUpperCase();
                     if(statusText.includes("GRANTED") || statusText.includes("UNLOCKED")) granted++;
@@ -173,67 +172,60 @@ DASHBOARD_HTML = """
 
         // 3. Live Search Filter
         function filterTable() {
-            let input = document.getElementById("searchInput");
-            let filter = input.value.toUpperCase();
-            let table = document.getElementById("logTable");
-            let tr = table.getElementsByTagName("tr");
-            
+            let filter = document.getElementById("searchInput").value.toUpperCase();
+            let tr = document.getElementById("logTable").getElementsByTagName("tr");
             for (let i = 1; i < tr.length; i++) {
                 let txtValue = tr[i].textContent || tr[i].innerText;
-                if (txtValue.toUpperCase().indexOf(filter) > -1) {
-                    tr[i].style.display = "";
-                } else {
-                    tr[i].style.display = "none";
-                }
+                tr[i].style.display = txtValue.toUpperCase().indexOf(filter) > -1 ? "" : "none";
             }
-            updateStats(); // Update stats based on search results
+            updateStats(); 
         }
 
-        // 4. Remote Unlock Function
+        // 4. Remote Unlock + 🗣️ A.I. VOICE ANNOUNCER
         function remoteUnlock() {
-            if(confirm("⚠️ SECURITY WARNING: Are you sure you want to unlock the safe remotely?")) {
+            if(confirm("⚠️ SECURITY WARNING: Unlock the safe remotely?")) {
+                
+                // Voice Announcement Logic
+                let speech = new SpeechSynthesisUtterance();
+                speech.text = "Warning. Initiating remote unlock sequence for the smart safe.";
+                speech.volume = 1; speech.rate = 0.9; speech.pitch = 1;
+                window.speechSynthesis.speak(speech);
+
                 fetch('/web_unlock', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
-                    alert("✅ Unlock Command Sent to Safe!");
-                    setTimeout(() => location.reload(), 2000);
+                    setTimeout(() => {
+                        let successSpeech = new SpeechSynthesisUtterance("Unlock command sent successfully.");
+                        window.speechSynthesis.speak(successSpeech);
+                        alert("✅ Unlock Command Sent!");
+                        location.reload();
+                    }, 2500); // Waits for the first voice to finish
                 });
             }
         }
 
-        // 5. Export to CSV Excel
+        // 5. CSV Export
         function exportCSV() {
-            let table = document.getElementById("logTable");
-            let rows = table.querySelectorAll("tr");
+            let rows = document.querySelectorAll("#logTable tr");
             let csv = [];
             for (let i = 0; i < rows.length; i++) {
-                // Ignore hidden rows
                 if(rows[i].style.display !== "none") {
                     let row = [], cols = rows[i].querySelectorAll("td, th");
-                    for (let j = 0; j < cols.length; j++) row.push('"' + cols[j].innerText + '"');
+                    for (let j = 0; j < cols.length; j++) row.push('"' + cols[j].innerText.replace(/[^a-zA-Z0-9 :/-]/g, "").trim() + '"');
                     csv.push(row.join(","));
                 }
             }
-            let csvFile = new Blob([csv.join("\\n")], {type: "text/csv"});
-            let downloadLink = document.createElement("a");
-            downloadLink.download = "SmartSafe_Access_Logs.csv";
-            downloadLink.href = window.URL.createObjectURL(csvFile);
-            downloadLink.style.display = "none";
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
+            let link = document.createElement("a");
+            link.download = "SmartSafe_Access_Logs.csv";
+            link.href = window.URL.createObjectURL(new Blob([csv.join("\\n")], {type: "text/csv"}));
+            link.click();
         }
 
-        // 6. Smart Auto-refresh (Pause if user is typing in search)
-        setInterval(() => {
-            if(document.getElementById("searchInput").value === "") {
-                location.reload();
-            }
-        }, 30000); // 30 seconds
+        setInterval(() => { if(!document.getElementById("searchInput").value) location.reload(); }, 30000);
     </script>
 </body>
 </html>
 """
-
 # ==========================================
 # 📧 EMAIL SENDING API (GOOGLE APPS SCRIPT)
 # ==========================================
