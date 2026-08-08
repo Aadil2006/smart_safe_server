@@ -42,6 +42,8 @@ DASHBOARD_HTML = """
 <head>
     <title>Smart Safe Command Center</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Chart.js Library Include Kari Hai -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --accent: #3b82f6; --text: #f8fafc; --border: #334155; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --th-bg: #0b1120; }
         body.light-mode { --bg: #f1f5f9; --card: #ffffff; --accent: #2563eb; --text: #0f172a; --border: #cbd5e1; --th-bg: #e2e8f0; }
@@ -51,9 +53,7 @@ DASHBOARD_HTML = """
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
         h1 { color: var(--accent); margin: 0; font-size: 26px; display: flex; align-items: center; gap: 10px; }
-        
-        /* Blinking Live Dot */
-        .live-dot { width: 12px; height: 12px; background-color: var(--danger); border-radius: 50%; box-shadow: 0 0 10px var(--danger); animation: blink 1.5s infinite; }
+        .live-dot { width: 12px; height: 12px; background-color: var(--success); border-radius: 50%; box-shadow: 0 0 10px var(--success); animation: blink 1.5s infinite; }
         @keyframes blink { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }
         
         .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
@@ -61,16 +61,17 @@ DASHBOARD_HTML = """
         .btn:hover { background: var(--accent); color: #fff; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3); }
         .btn-danger { border-color: var(--danger); color: var(--danger); }
         .btn-danger:hover { background: var(--danger); color: white; box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3); }
-        .btn-voice { border-color: #8b5cf6; color: #8b5cf6; }
-        .btn-voice:hover { background: #8b5cf6; color: white; box-shadow: 0 5px 15px rgba(139, 92, 246, 0.3); }
         
         .search-box { padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); flex-grow: 1; font-size: 16px; outline: none; transition: 0.3s; }
         .search-box:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(59, 130, 246, 0.2); }
         
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        /* Layout for Stats & Chart */
+        .top-panel { display: flex; gap: 15px; margin-bottom: 25px; flex-wrap: wrap; }
+        .stats-grid { flex: 2; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
         .stat-card { background: var(--card); padding: 20px; border-radius: 10px; text-align: center; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .stat-card h3 { margin: 0; font-size: 14px; color: #94a3b8; text-transform: uppercase; }
+        .stat-card h3 { margin: 0; font-size: 13px; color: #94a3b8; text-transform: uppercase; }
         .stat-card h2 { margin: 10px 0 0 0; font-size: 32px; }
+        .chart-card { flex: 1; background: var(--card); padding: 15px; border-radius: 10px; border: 1px solid var(--border); display: flex; justify-content: center; align-items: center; min-width: 200px; height: 130px; }
         
         table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
         th, td { padding: 15px; text-align: left; border-bottom: 1px solid var(--border); }
@@ -81,37 +82,36 @@ DASHBOARD_HTML = """
         .badge.granted { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid var(--success); }
         .badge.denied { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid var(--danger); }
         .badge.locked { background: rgba(245, 158, 11, 0.15); color: var(--warning); border: 1px solid var(--warning); }
-        
-        #listeningIndicator { display: none; color: #8b5cf6; font-weight: bold; animation: blink 1s infinite; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>
-            <div class="live-dot" style="background-color: #10b981; box-shadow: 0 0 10px #10b981;"></div> 
-            🛡️ Command Center
-        </h1>
-        <div style="display: flex; align-items: center; gap: 15px;">
-            <span style="color: #10b981; font-weight: bold; font-size: 14px;">● SERVER ONLINE</span>
-            <button id="themeBtn" class="btn" onclick="toggleTheme()">☀️ Light</button>
+    <div class="container">
+        <div class="header">
+            <h1><div class="live-dot"></div> 🛡️ Command Center</h1>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span style="color: var(--success); font-weight: bold; font-size: 14px; letter-spacing: 1px;">● SERVER ONLINE</span>
+                <button id="themeBtn" class="btn" onclick="toggleTheme()">☀️ Light</button>
+            </div>
         </div>
-    </div>
         
-        <div class="stats-grid">
-            <div class="stat-card"><h3>Total Activity</h3><h2 id="totalLogs">0</h2></div>
-            <div class="stat-card"><h3>Successful Unlocks</h3><h2 id="totalGranted" style="color: var(--success);">0</h2></div>
-            <div class="stat-card"><h3>Breach Attempts</h3><h2 id="totalDenied" style="color: var(--danger);">0</h2></div>
+        <div class="top-panel">
+            <div class="stats-grid">
+                <div class="stat-card"><h3>Total Activity</h3><h2 id="totalLogs">0</h2></div>
+                <div class="stat-card"><h3>Successful Unlocks</h3><h2 id="totalGranted" style="color: var(--success);">0</h2></div>
+                <div class="stat-card"><h3>Breach Attempts</h3><h2 id="totalDenied" style="color: var(--danger);">0</h2></div>
+            </div>
+            <!-- Live Animated Donut Chart -->
+            <div class="chart-card">
+                <canvas id="securityChart"></canvas>
+            </div>
         </div>
         
         <div class="controls">
             <button class="btn btn-danger" onclick="remoteUnlock()">🔓 Remote Unlock</button>
-            <button class="btn btn-voice" onclick="startVoiceCommand()">🎤 Voice AI</button>
-            <span id="listeningIndicator">Listening... Speak now!</span>
-            
-            <button class="btn" onclick="exportCSV()" style="margin-left: auto;">📥 CSV Logs</button>
+            <button class="btn" onclick="exportCSV()" style="margin-left: auto;">📥 Export Report (CSV)</button>
         </div>
         
-        <input type="text" id="searchInput" class="search-box" placeholder="🔍 Search logs by User, Date, or Status..." onkeyup="filterTable()" style="width: 100%; margin-bottom: 20px;">
+        <input type="text" id="searchInput" class="search-box" placeholder="🔍 Search logs by Identity, Date, or Status..." onkeyup="filterTable()" style="width: 100%; margin-bottom: 20px; box-sizing: border-box;">
 
         <table id="logTable">
             <tr><th>Date & Time</th><th>User Identity</th><th>Status</th></tr>
@@ -139,7 +139,7 @@ DASHBOARD_HTML = """
     </div>
 
     <script>
-        // Theme Logic
+        // 1. Theme Logic
         function toggleTheme() {
             document.body.classList.toggle('light-mode');
             let btn = document.getElementById('themeBtn');
@@ -148,14 +148,49 @@ DASHBOARD_HTML = """
             } else {
                 btn.innerText = '☀️ Light'; localStorage.setItem('theme', 'dark');
             }
+            updateChartTheme(); // Update chart colors on theme change
         }
         if(localStorage.getItem('theme') === 'light') toggleTheme();
 
-        // Dynamic Stats
+        // 2. Chart Initialization
+        let myChart;
+        function initChart() {
+            let ctx = document.getElementById('securityChart').getContext('2d');
+            myChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Granted', 'Breach'],
+                    datasets: [{
+                        data: [1, 1], // Placeholder
+                        backgroundColor: ['#10b981', '#ef4444'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: {
+                        legend: { position: 'right', labels: { color: document.body.classList.contains('light-mode') ? '#0f172a' : '#f8fafc', font: {size: 11} } }
+                    }
+                }
+            });
+        }
+        
+        function updateChartTheme() {
+            if(myChart) {
+                myChart.options.plugins.legend.labels.color = document.body.classList.contains('light-mode') ? '#0f172a' : '#f8fafc';
+                myChart.update();
+            }
+        }
+
+        // 3. Dynamic Stats & Chart Update
         function updateStats() {
             let rows = document.querySelectorAll("#logTable tr");
             let total = 0, granted = 0, denied = 0;
             if(document.getElementById("noRecords")) return; 
+            
             for (let i = 1; i < rows.length; i++) {
                 if (rows[i].style.display !== "none") {
                     total++;
@@ -167,10 +202,20 @@ DASHBOARD_HTML = """
             document.getElementById("totalLogs").innerText = total;
             document.getElementById("totalGranted").innerText = granted;
             document.getElementById("totalDenied").innerText = denied;
+            
+            // Update the live chart data
+            if(myChart) {
+                myChart.data.datasets[0].data = [granted, denied];
+                myChart.update();
+            }
         }
-        window.onload = updateStats;
+        
+        window.onload = function() {
+            initChart();
+            updateStats();
+        };
 
-        // Search Filter
+        // 4. Search Filter
         function filterTable() {
             let filter = document.getElementById("searchInput").value.toUpperCase();
             let tr = document.getElementById("logTable").getElementsByTagName("tr");
@@ -181,59 +226,19 @@ DASHBOARD_HTML = """
             updateStats(); 
         }
 
-        // Remote Unlock
+        // 5. Remote Unlock
         function remoteUnlock() {
-            let speech = new SpeechSynthesisUtterance("Command received. Unlocking safe.");
-            window.speechSynthesis.speak(speech);
-
-            fetch('/web_unlock', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                setTimeout(() => location.reload(), 2000);
-            });
-        }
-
-        // Voice Command AI
-        function startVoiceCommand() {
-            if (!('webkitSpeechRecognition' in window)) {
-                alert("Your browser does not support Voice AI. Try Google Chrome.");
-                return;
+            if(confirm("⚠️ SECURITY WARNING: Are you sure you want to unlock the safe remotely?")) {
+                fetch('/web_unlock', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    alert("✅ Unlock Command Sent to Safe!");
+                    setTimeout(() => location.reload(), 2000);
+                });
             }
-            
-            let recognition = new webkitSpeechRecognition();
-            recognition.lang = "en-US";
-            recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
-            
-            let indicator = document.getElementById('listeningIndicator');
-            
-            recognition.onstart = function() {
-                indicator.style.display = "inline-block";
-                let speech = new SpeechSynthesisUtterance("Waiting for command.");
-                window.speechSynthesis.speak(speech);
-            };
-            
-            recognition.onresult = function(event) {
-                let command = event.results[0][0].transcript.toLowerCase();
-                indicator.style.display = "none";
-                
-                if(command.includes("unlock") || command.includes("open")) {
-                    remoteUnlock();
-                } else {
-                    let speech = new SpeechSynthesisUtterance("Command not recognized.");
-                    window.speechSynthesis.speak(speech);
-                    alert("Heard: '" + command + "'. Command not recognized.");
-                }
-            };
-            
-            recognition.onerror = function() {
-                indicator.style.display = "none";
-            };
-            
-            recognition.start();
         }
 
-        // CSV Export
+        // 6. CSV Export
         function exportCSV() {
             let rows = document.querySelectorAll("#logTable tr");
             let csv = [];
@@ -245,16 +250,18 @@ DASHBOARD_HTML = """
                 }
             }
             let link = document.createElement("a");
-            link.download = "SmartSafe_Access_Logs.csv";
+            link.download = "SmartSafe_Security_Report.csv";
             link.href = window.URL.createObjectURL(new Blob([csv.join("\\n")], {type: "text/csv"}));
             link.click();
         }
 
+        // Auto Refresh
         setInterval(() => { if(!document.getElementById("searchInput").value) location.reload(); }, 30000);
     </script>
 </body>
 </html>
 """
+
 # ==========================================
 # 📧 EMAIL SENDING API (GOOGLE APPS SCRIPT)
 # ==========================================
