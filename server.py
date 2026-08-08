@@ -34,7 +34,7 @@ except Exception as e:
     print("❌ Database Connection Error:", e)
 
 # ==========================================
-# 3. ULTIMATE WEB DASHBOARD (UI 3.0)
+# 3. THE ULTIMATE COMMAND CENTER (HTML)
 # ==========================================
 DASHBOARD_HTML = """
 <!DOCTYPE html>
@@ -42,7 +42,7 @@ DASHBOARD_HTML = """
 <head>
     <title>Smart Safe Command Center</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- Chart.js Library Include Kari Hai -->
+    <!-- Chart.js Library -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --accent: #3b82f6; --text: #f8fafc; --border: #334155; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --th-bg: #0b1120; }
@@ -62,7 +62,12 @@ DASHBOARD_HTML = """
         .btn-danger { border-color: var(--danger); color: var(--danger); }
         .btn-danger:hover { background: var(--danger); color: white; box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3); }
         
-        .search-box { padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); flex-grow: 1; font-size: 16px; outline: none; transition: 0.3s; }
+        /* Voice AI Button Styling */
+        .btn-voice { border-color: #8b5cf6; color: #8b5cf6; }
+        .btn-voice:hover { background: #8b5cf6; color: white; box-shadow: 0 5px 15px rgba(139, 92, 246, 0.3); }
+        #listeningIndicator { display: none; color: #8b5cf6; font-weight: bold; animation: blink 1s infinite; margin-left: 10px; font-size: 14px;}
+        
+        .search-box { padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); flex-grow: 1; font-size: 16px; outline: none; transition: 0.3s; width: 100%; box-sizing: border-box; margin-bottom: 20px;}
         .search-box:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(59, 130, 246, 0.2); }
         
         /* Layout for Stats & Chart */
@@ -108,10 +113,12 @@ DASHBOARD_HTML = """
         
         <div class="controls">
             <button class="btn btn-danger" onclick="remoteUnlock()">🔓 Remote Unlock</button>
-            <button class="btn" onclick="exportCSV()" style="margin-left: auto;">📥 Export Report (CSV)</button>
+            <button class="btn btn-voice" onclick="startVoiceCommand()">🎤 Voice AI</button>
+            <span id="listeningIndicator">Listening... Speak now!</span>
+            <button class="btn" onclick="exportCSV()" style="margin-left: auto;">📥 Export Report</button>
         </div>
         
-        <input type="text" id="searchInput" class="search-box" placeholder="🔍 Search logs by Identity, Date, or Status..." onkeyup="filterTable()" style="width: 100%; margin-bottom: 20px; box-sizing: border-box;">
+        <input type="text" id="searchInput" class="search-box" placeholder="🔍 Search logs by Identity, Date, or Status..." onkeyup="filterTable()">
 
         <table id="logTable">
             <tr><th>Date & Time</th><th>User Identity</th><th>Status</th></tr>
@@ -148,7 +155,14 @@ DASHBOARD_HTML = """
             } else {
                 btn.innerText = '☀️ Light'; localStorage.setItem('theme', 'dark');
             }
-            updateChartTheme(); // Update chart colors on theme change
+            updateChartTheme();
+        }
+        
+        function updateChartTheme() {
+            if(typeof myChart !== 'undefined' && myChart) {
+                myChart.options.plugins.legend.labels.color = document.body.classList.contains('light-mode') ? '#0f172a' : '#f8fafc';
+                myChart.update();
+            }
         }
         if(localStorage.getItem('theme') === 'light') toggleTheme();
 
@@ -161,7 +175,7 @@ DASHBOARD_HTML = """
                 data: {
                     labels: ['Granted', 'Breach'],
                     datasets: [{
-                        data: [1, 1], // Placeholder
+                        data: [0, 0],
                         backgroundColor: ['#10b981', '#ef4444'],
                         borderWidth: 0,
                         hoverOffset: 4
@@ -177,34 +191,26 @@ DASHBOARD_HTML = """
                 }
             });
         }
-        
-        function updateChartTheme() {
-            if(myChart) {
-                myChart.options.plugins.legend.labels.color = document.body.classList.contains('light-mode') ? '#0f172a' : '#f8fafc';
-                myChart.update();
-            }
-        }
 
         // 3. Dynamic Stats & Chart Update
         function updateStats() {
             let rows = document.querySelectorAll("#logTable tr");
             let total = 0, granted = 0, denied = 0;
-            if(document.getElementById("noRecords")) return; 
             
             for (let i = 1; i < rows.length; i++) {
-                if (rows[i].style.display !== "none") {
+                if (rows[i].style.display !== "none" && !rows[i].querySelector("#noRecords")) {
                     total++;
                     let statusText = rows[i].cells[2].innerText.toUpperCase();
                     if(statusText.includes("GRANTED") || statusText.includes("UNLOCKED")) granted++;
                     if(statusText.includes("DENIED") || statusText.includes("LOCKOUT")) denied++;
                 }
             }
+            
             document.getElementById("totalLogs").innerText = total;
             document.getElementById("totalGranted").innerText = granted;
             document.getElementById("totalDenied").innerText = denied;
             
-            // Update the live chart data
-            if(myChart) {
+            if(typeof myChart !== 'undefined' && myChart) {
                 myChart.data.datasets[0].data = [granted, denied];
                 myChart.update();
             }
@@ -213,6 +219,7 @@ DASHBOARD_HTML = """
         window.onload = function() {
             initChart();
             updateStats();
+            updateChartTheme();
         };
 
         // 4. Search Filter
@@ -229,16 +236,58 @@ DASHBOARD_HTML = """
         // 5. Remote Unlock
         function remoteUnlock() {
             if(confirm("⚠️ SECURITY WARNING: Are you sure you want to unlock the safe remotely?")) {
+                let speech = new SpeechSynthesisUtterance("Command received. Unlocking safe.");
+                window.speechSynthesis.speak(speech);
+
                 fetch('/web_unlock', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
-                    alert("✅ Unlock Command Sent to Safe!");
                     setTimeout(() => location.reload(), 2000);
                 });
             }
         }
 
-        // 6. CSV Export
+        // 6. Voice Command AI
+        function startVoiceCommand() {
+            if (!('webkitSpeechRecognition' in window)) {
+                alert("Your browser does not support Voice AI. Try Google Chrome.");
+                return;
+            }
+            
+            let recognition = new webkitSpeechRecognition();
+            recognition.lang = "en-US";
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+            
+            let indicator = document.getElementById('listeningIndicator');
+            
+            recognition.onstart = function() {
+                if(indicator) indicator.style.display = "inline-block";
+                let speech = new SpeechSynthesisUtterance("Waiting for command.");
+                window.speechSynthesis.speak(speech);
+            };
+            
+            recognition.onresult = function(event) {
+                let command = event.results[0][0].transcript.toLowerCase();
+                if(indicator) indicator.style.display = "none";
+                
+                if(command.includes("unlock") || command.includes("open")) {
+                    remoteUnlock();
+                } else {
+                    let speech = new SpeechSynthesisUtterance("Command not recognized.");
+                    window.speechSynthesis.speak(speech);
+                    alert("Heard: '" + command + "'. Command not recognized.");
+                }
+            };
+            
+            recognition.onerror = function() {
+                if(indicator) indicator.style.display = "none";
+            };
+            
+            recognition.start();
+        }
+
+        // 7. CSV Export
         function exportCSV() {
             let rows = document.querySelectorAll("#logTable tr");
             let csv = [];
@@ -369,7 +418,6 @@ def index():
     auth = request.authorization
     if not auth or not (auth.username == WEB_USER and auth.password == WEB_PASS):
         return Response('Security Alert: Login Required.', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
-    # Changed limit to 100 to show more data in analytics
     logs_cursor = collection.find().sort("timestamp", -1).limit(100)
     logs_list = [{"time_str": log['timestamp'].strftime("%Y-%m-%d %H:%M:%S") if isinstance(log.get('timestamp'), datetime) else "Unknown", "rfid_tag": log.get('rfid_tag', ''), "status": log.get('status', '')} for log in logs_cursor]
     return render_template_string(DASHBOARD_HTML, logs=logs_list)
