@@ -86,13 +86,16 @@ DASHBOARD_HTML = """
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1><div class="live-dot"></div> 🛡️ Command Center</h1>
-            <div>
-                <button id="themeBtn" class="btn" onclick="toggleTheme()" style="margin-right: 10px; display:inline-block;">☀️ Light</button>
-            </div>
+    <div class="header">
+        <h1>
+            <div class="live-dot" style="background-color: #10b981; box-shadow: 0 0 10px #10b981;"></div> 
+            🛡️ Command Center
+        </h1>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <span style="color: #10b981; font-weight: bold; font-size: 14px;">● SERVER ONLINE</span>
+            <button id="themeBtn" class="btn" onclick="toggleTheme()">☀️ Light</button>
         </div>
+    </div>
         
         <div class="stats-grid">
             <div class="stat-card"><h3>Total Activity</h3><h2 id="totalLogs">0</h2></div>
