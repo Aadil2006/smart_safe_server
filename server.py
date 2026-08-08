@@ -34,7 +34,7 @@ except Exception as e:
     print("❌ Database Connection Error:", e)
 
 # ==========================================
-# 3. ADVANCED WEB DASHBOARD (UI 2.0)
+# 3. ULTIMATE WEB DASHBOARD (UI 3.0)
 # ==========================================
 DASHBOARD_HTML = """
 <!DOCTYPE html>
@@ -43,38 +43,67 @@ DASHBOARD_HTML = """
     <title>Smart Safe Command Center</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --accent: #3b82f6; --text: #f8fafc; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        .container { max-width: 1000px; margin: auto; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 10px; }
-        h1 { color: var(--accent); margin: 0; font-size: 24px; }
-        .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        /* CSS Variables for Dark/Light Mode */
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #3b82f6; --text: #f8fafc; --border: #334155; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --th-bg: #0b1120; }
+        body.light-mode { --bg: #f1f5f9; --card: #ffffff; --accent: #2563eb; --text: #0f172a; --border: #cbd5e1; --th-bg: #e2e8f0; }
         
-        .btn { padding: 12px 20px; background: var(--card); border: 2px solid var(--accent); color: var(--text); border-radius: 8px; cursor: pointer; transition: 0.3s; font-weight: bold; }
-        .btn:hover { background: var(--accent); }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; transition: background 0.3s, color 0.3s; }
+        .container { max-width: 1000px; margin: auto; }
+        
+        /* Header & Buttons */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+        h1 { color: var(--accent); margin: 0; font-size: 26px; }
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .btn { padding: 10px 18px; background: var(--card); border: 2px solid var(--accent); color: var(--text); border-radius: 8px; cursor: pointer; transition: 0.3s; font-weight: bold; }
+        .btn:hover { background: var(--accent); color: #fff; }
         .btn-danger { border-color: var(--danger); color: var(--danger); }
         .btn-danger:hover { background: var(--danger); color: white; }
-        
-        .search-box { padding: 12px; border-radius: 8px; border: 1px solid #334155; background: var(--card); color: white; flex-grow: 1; font-size: 16px; outline: none; }
+        .search-box { padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); flex-grow: 1; font-size: 16px; outline: none; }
         .search-box:focus { border-color: var(--accent); }
         
-        table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #334155; }
-        th { background: #0b1120; color: var(--accent); text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px; }
-        tr:hover { background: #334155; }
+        /* Analytics Cards */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-card { background: var(--card); padding: 20px; border-radius: 10px; text-align: center; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.3s; }
+        .stat-card h3 { margin: 0; font-size: 14px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-card h2 { margin: 10px 0 0 0; font-size: 32px; }
         
-        /* Badges for Status */
+        /* Table Styles */
+        table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 1px solid var(--border); }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: var(--th-bg); color: var(--accent); text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px; }
+        tr:hover { background: rgba(59, 130, 246, 0.05); }
+        
+        /* Badges */
         .badge { padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; display: inline-block; }
-        .badge.granted { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); }
-        .badge.denied { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
-        .badge.locked { background: rgba(245, 158, 11, 0.2); color: var(--warning); border: 1px solid var(--warning); }
+        .badge.granted { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid var(--success); }
+        .badge.denied { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid var(--danger); }
+        .badge.locked { background: rgba(245, 158, 11, 0.15); color: var(--warning); border: 1px solid var(--warning); }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🛡️ Smart Safe Command Center</h1>
-            <span style="color: #94a3b8; font-size: 14px;">Logged in as <b>Admin</b></span>
+            <h1>🛡️ Command Center</h1>
+            <div>
+                <button id="themeBtn" class="btn" onclick="toggleTheme()" style="margin-right: 10px;">☀️ Light Mode</button>
+                <span style="color: #94a3b8; font-size: 14px;">Logged in as <b>Admin</b></span>
+            </div>
+        </div>
+        
+        <!-- Live Analytics Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Activity</h3>
+                <h2 id="totalLogs">0</h2>
+            </div>
+            <div class="stat-card">
+                <h3>Successful Unlocks</h3>
+                <h2 id="totalGranted" style="color: var(--success);">0</h2>
+            </div>
+            <div class="stat-card">
+                <h3>Breach Attempts</h3>
+                <h2 id="totalDenied" style="color: var(--danger);">0</h2>
+            </div>
         </div>
         
         <div class="controls">
@@ -100,25 +129,49 @@ DASHBOARD_HTML = """
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="3" style="text-align: center; color: #94a3b8;">No records yet. Waiting for Safe to connect...</td></tr>
+            <tr><td colspan="3" id="noRecords" style="text-align: center; color: #94a3b8;">No records yet. Waiting for Safe to connect...</td></tr>
             {% endfor %}
         </table>
     </div>
 
     <script>
-        // 1. Remote Unlock Function
-        function remoteUnlock() {
-            if(confirm("⚠️ SECURITY WARNING: Are you sure you want to unlock the safe remotely?")) {
-                fetch('/web_unlock', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    alert("✅ Unlock Command Sent to Safe!");
-                    setTimeout(() => location.reload(), 2000);
-                });
+        // 1. Theme Toggle Logic (Saves to LocalStorage)
+        function toggleTheme() {
+            document.body.classList.toggle('light-mode');
+            let btn = document.getElementById('themeBtn');
+            if(document.body.classList.contains('light-mode')) {
+                btn.innerText = '🌙 Dark Mode';
+                localStorage.setItem('theme', 'light');
+            } else {
+                btn.innerText = '☀️ Light Mode';
+                localStorage.setItem('theme', 'dark');
             }
         }
+        if(localStorage.getItem('theme') === 'light') toggleTheme();
 
-        // 2. Live Search Filter
+        // 2. Calculate Dashboard Stats dynamically
+        function updateStats() {
+            let rows = document.querySelectorAll("#logTable tr");
+            let total = 0, granted = 0, denied = 0;
+            
+            // Check if there's no data
+            if(document.getElementById("noRecords")) return; 
+            
+            for (let i = 1; i < rows.length; i++) {
+                if (rows[i].style.display !== "none") { // Count only visible rows if searched
+                    total++;
+                    let statusText = rows[i].cells[2].innerText.toUpperCase();
+                    if(statusText.includes("GRANTED") || statusText.includes("UNLOCKED")) granted++;
+                    if(statusText.includes("DENIED") || statusText.includes("LOCKOUT")) denied++;
+                }
+            }
+            document.getElementById("totalLogs").innerText = total;
+            document.getElementById("totalGranted").innerText = granted;
+            document.getElementById("totalDenied").innerText = denied;
+        }
+        window.onload = updateStats;
+
+        // 3. Live Search Filter
         function filterTable() {
             let input = document.getElementById("searchInput");
             let filter = input.value.toUpperCase();
@@ -133,17 +186,33 @@ DASHBOARD_HTML = """
                     tr[i].style.display = "none";
                 }
             }
+            updateStats(); // Update stats based on search results
         }
 
-        // 3. Export to CSV Excel
+        // 4. Remote Unlock Function
+        function remoteUnlock() {
+            if(confirm("⚠️ SECURITY WARNING: Are you sure you want to unlock the safe remotely?")) {
+                fetch('/web_unlock', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    alert("✅ Unlock Command Sent to Safe!");
+                    setTimeout(() => location.reload(), 2000);
+                });
+            }
+        }
+
+        // 5. Export to CSV Excel
         function exportCSV() {
             let table = document.getElementById("logTable");
             let rows = table.querySelectorAll("tr");
             let csv = [];
             for (let i = 0; i < rows.length; i++) {
-                let row = [], cols = rows[i].querySelectorAll("td, th");
-                for (let j = 0; j < cols.length; j++) row.push('"' + cols[j].innerText + '"');
-                csv.push(row.join(","));
+                // Ignore hidden rows
+                if(rows[i].style.display !== "none") {
+                    let row = [], cols = rows[i].querySelectorAll("td, th");
+                    for (let j = 0; j < cols.length; j++) row.push('"' + cols[j].innerText + '"');
+                    csv.push(row.join(","));
+                }
             }
             let csvFile = new Blob([csv.join("\\n")], {type: "text/csv"});
             let downloadLink = document.createElement("a");
@@ -154,12 +223,12 @@ DASHBOARD_HTML = """
             downloadLink.click();
         }
 
-        // 4. Auto-refresh page every 30 seconds (Only if not typing in search)
+        // 6. Smart Auto-refresh (Pause if user is typing in search)
         setInterval(() => {
-            if(!document.getElementById("searchInput").value) {
+            if(document.getElementById("searchInput").value === "") {
                 location.reload();
             }
-        }, 30000);
+        }, 30000); // 30 seconds
     </script>
 </body>
 </html>
@@ -169,7 +238,7 @@ DASHBOARD_HTML = """
 # 📧 EMAIL SENDING API (GOOGLE APPS SCRIPT)
 # ==========================================
 # 👇 YAHAN APNA GOOGLE SCRIPT WALA LINK WAPAS PASTE KAR DENA 👇
-GOOGLE_SCRIPT_URL = "TERA_GOOGLE_SCRIPT_LINK_YAHAN_DAAL"
+GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzyrcRKzeJ_RbCNPiPpu9EM_uMgsjue1kUhru1UnezR_NLw0isrWO6ngMwt7nR5h5lR/exec"
 EMAIL_ID = "aadilarora36@gmail.com"
 
 def send_email_sync(subject, body):
@@ -272,7 +341,8 @@ def index():
     auth = request.authorization
     if not auth or not (auth.username == WEB_USER and auth.password == WEB_PASS):
         return Response('Security Alert: Login Required.', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
-    logs_cursor = collection.find().sort("timestamp", -1).limit(50)
+    # Changed limit to 100 to show more data in analytics
+    logs_cursor = collection.find().sort("timestamp", -1).limit(100)
     logs_list = [{"time_str": log['timestamp'].strftime("%Y-%m-%d %H:%M:%S") if isinstance(log.get('timestamp'), datetime) else "Unknown", "rfid_tag": log.get('rfid_tag', ''), "status": log.get('status', '')} for log in logs_cursor]
     return render_template_string(DASHBOARD_HTML, logs=logs_list)
 
